@@ -2,6 +2,7 @@ package hk.ust.csit5970;
 
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.apache.commons.cli.CommandLine;
@@ -19,6 +20,7 @@ import org.apache.hadoop.io.FloatWritable;
 import org.apache.hadoop.io.IntWritable;
 import org.apache.hadoop.io.LongWritable;
 import org.apache.hadoop.io.Text;
+import org.apache.hadoop.mapred.TestMiniMRClientCluster.MyReducer;
 import org.apache.hadoop.mapreduce.Job;
 import org.apache.hadoop.mapreduce.Mapper;
 import org.apache.hadoop.mapreduce.Reducer;
@@ -27,6 +29,7 @@ import org.apache.hadoop.mapreduce.lib.output.FileOutputFormat;
 import org.apache.hadoop.util.Tool;
 import org.apache.hadoop.util.ToolRunner;
 import org.apache.log4j.Logger;
+import org.apache.zookeeper.Environment.Entry;
 
 /**
  * Compute the bigram count using the "stripes" approach
@@ -54,6 +57,22 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+            if (words.length > 1){
+				String previous_word = words[0];
+				for (int i = 1; i < words.length; i++) {
+					String w = words[i];
+					// Skip empty words
+					if (w.length() == 0) {
+						continue;
+					}
+                    STRIPE.clear();
+                    KEY.set(previous_word);
+                    STRIPE.increment(w);
+                    STRIPE.increment("");
+                    context.write(KEY, STRIPE);
+					previous_word = w;
+				}
+			}
 		}
 	}
 
@@ -75,6 +94,23 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+            SUM_STRIPES.clear();
+            for(HashMapStringIntWritable stripe:stripes)
+                SUM_STRIPES.plus(stripe);
+
+            int word_count=SUM_STRIPES.get("");
+            BIGRAM.set(key.toString(), "");
+            FREQ.set(word_count);
+            context.write(BIGRAM, FREQ);
+                
+            for(Map.Entry<String,Integer> e:SUM_STRIPES.entrySet())
+            {
+                if(e.getKey().equals(""))
+                    continue;
+                BIGRAM.set(key.toString(), e.getKey());
+                FREQ.set((float)e.getValue()/word_count);
+                context.write(BIGRAM, FREQ);
+            }
 		}
 	}
 
@@ -94,6 +130,10 @@ public class BigramFrequencyStripes extends Configured implements Tool {
 			/*
 			 * TODO: Your implementation goes here.
 			 */
+            SUM_STRIPES.clear();
+            for(HashMapStringIntWritable stripe:stripes)
+                SUM_STRIPES.plus(stripe);
+            context.write(key, SUM_STRIPES);
 		}
 	}
 

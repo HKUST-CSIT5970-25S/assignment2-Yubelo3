@@ -140,6 +140,8 @@ public class WordCount extends Configured implements Tool {
 		job.setJarByClass(WordCount.class);
 
 		job.setNumReduceTasks(reduceTasks);
+        
+        System.out.println(inputPath);
 
 		FileInputFormat.setInputPaths(job, new Path(inputPath));
 		FileOutputFormat.setOutputPath(job, new Path(outputPath));
